@@ -1,0 +1,328 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import ProtectedRoute from '@/components/ProtectedRoute'
+
+interface LessonPlan {
+  id: string
+  title: string
+  topic: string
+  grade: string
+  duration: number
+  plan_json: {
+    title: string
+    objectives: string[]
+    structure: {
+      introduction: string
+      main_activity: string
+      assessment: string
+      timing: string
+    }
+    resources: Array<{
+      title: string
+      type: string
+      url: string
+      score: number
+      reasoning: string
+    }>
+    materials_needed: string[]
+    differentiation: string
+  }
+  agent_thoughts?: {
+    objectives_reasoning: string
+    structure_reasoning: string
+    resources_reasoning: string
+  }
+  created_at: string
+  updated_at: string
+}
+
+export default function AppPage() {
+  const [topic, setTopic] = useState('')
+  const [grade, setGrade] = useState('')
+  const [duration, setDuration] = useState(60)
+  const [showAgentThoughts, setShowAgentThoughts] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [lessonPlan, setLessonPlan] = useState<LessonPlan | null>(null)
+  const [error, setError] = useState('')
+
+  const { user, signOut } = useAuth()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await signOut()
+    router.push('/')
+  }
+
+  const generateLessonPlan = async () => {
+    if (!topic || !grade) {
+      setError('Please fill in both topic and grade level')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setLessonPlan(null)
+
+    try {
+      // Get the user's session token
+      const { data: { session } } = await import('@/lib/supabase').then(({ supabase }) => 
+        supabase.auth.getSession()
+      )
+
+      if (!session?.access_token) {
+        setError('Please sign in again to generate lessons')
+        return
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      
+      const response = await fetch(`${apiUrl}/api/lessons/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          topic,
+          grade,
+          duration,
+          show_agent_thoughts: showAgentThoughts
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to generate lesson plan')
+      }
+
+      const data = await response.json()
+      setLessonPlan(data)
+      
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while generating the lesson plan')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <h1 className="text-3xl font-bold text-gray-900">
+                Lesson Lab 2.0
+              </h1>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">
+                  Welcome, {user?.email}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm font-medium text-gray-700"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 py-6 sm:px-0">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              
+              {/* Input Form */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  Generate Lesson Plan
+                </h2>
+                
+                <form onSubmit={(e) => { e.preventDefault(); generateLessonPlan(); }} className="space-y-4">
+                  <div>
+                    <label htmlFor="topic" className="block text-sm font-medium text-gray-700">
+                      Lesson Topic
+                    </label>
+                    <input
+                      type="text"
+                      id="topic"
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      placeholder="e.g., Photosynthesis, Fractions, World War II"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm px-3 py-2 border"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="grade" className="block text-sm font-medium text-gray-700">
+                      Grade Level
+                    </label>
+                    <select
+                      id="grade"
+                      value={grade}
+                      onChange={(e) => setGrade(e.target.value)}
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm px-3 py-2 border"
+                      required
+                    >
+                      <option value="">Select grade level</option>
+                      <option value="K">Kindergarten</option>
+                      <option value="1">1st Grade</option>
+                      <option value="2">2nd Grade</option>
+                      <option value="3">3rd Grade</option>
+                      <option value="4">4th Grade</option>
+                      <option value="5">5th Grade</option>
+                      <option value="6">6th Grade</option>
+                      <option value="7">7th Grade</option>
+                      <option value="8">8th Grade</option>
+                      <option value="9">9th Grade</option>
+                      <option value="10">10th Grade</option>
+                      <option value="11">11th Grade</option>
+                      <option value="12">12th Grade</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="duration" className="block text-sm font-medium text-gray-700">
+                      Duration (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      id="duration"
+                      value={duration}
+                      onChange={(e) => setDuration(parseInt(e.target.value))}
+                      min="15"
+                      max="180"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm px-3 py-2 border"
+                    />
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      id="show-thoughts"
+                      type="checkbox"
+                      checked={showAgentThoughts}
+                      onChange={(e) => setShowAgentThoughts(e.target.checked)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="show-thoughts" className="ml-2 block text-sm text-gray-900">
+                      Show AI reasoning (agent thoughts)
+                    </label>
+                  </div>
+
+                  {error && (
+                    <div className="rounded-md bg-red-50 p-4">
+                      <div className="text-sm text-red-700">{error}</div>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    {loading ? 'Generating...' : 'Generate Lesson Plan'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Results */}
+              <div className="bg-white shadow rounded-lg p-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  Generated Lesson Plan
+                </h2>
+
+                {loading && (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    <span className="ml-2 text-gray-600">Creating your lesson plan...</span>
+                  </div>
+                )}
+
+                {lessonPlan && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">{lessonPlan.plan_json.title}</h3>
+                      <p className="text-sm text-gray-600">
+                        Duration: {lessonPlan.duration} minutes | Grade: {lessonPlan.grade}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Learning Objectives</h4>
+                      <ul className="list-disc list-inside space-y-1">
+                        {lessonPlan.plan_json.objectives.map((objective, index) => (
+                          <li key={index} className="text-gray-700">{objective}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Lesson Structure</h4>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="font-medium">Introduction:</span>
+                          <p className="text-gray-700">{lessonPlan.plan_json.structure.introduction}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium">Main Activity:</span>
+                          <p className="text-gray-700">{lessonPlan.plan_json.structure.main_activity}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium">Assessment:</span>
+                          <p className="text-gray-700">{lessonPlan.plan_json.structure.assessment}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Resources</h4>
+                      <div className="space-y-2">
+                        {lessonPlan.plan_json.resources.map((resource, index) => (
+                          <div key={index} className="border rounded p-3">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium">{resource.title}</p>
+                                <p className="text-sm text-gray-600">{resource.type}</p>
+                              </div>
+                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                                Score: {resource.score}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 mt-1">{resource.reasoning}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {lessonPlan.agent_thoughts && showAgentThoughts && (
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <h4 className="font-semibold text-blue-900 mb-2">🤖 AI Reasoning</h4>
+                        <div className="space-y-2 text-sm text-blue-800">
+                          <p><strong>Objectives:</strong> {lessonPlan.agent_thoughts.objectives_reasoning}</p>
+                          <p><strong>Structure:</strong> {lessonPlan.agent_thoughts.structure_reasoning}</p>
+                          <p><strong>Resources:</strong> {lessonPlan.agent_thoughts.resources_reasoning}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!loading && !lessonPlan && (
+                  <div className="text-center py-12 text-gray-500">
+                    Enter a topic and grade level to generate your lesson plan
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </ProtectedRoute>
+  )
+}
