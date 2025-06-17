@@ -20,23 +20,30 @@ class LessonService:
             show_thoughts=request.show_agent_thoughts
         )
         
+        # Generate title if not provided
+        title = request.title or f"{request.topic} - Grade {request.grade}"
+        
         # Save to database
         lesson_id = str(uuid.uuid4())
         lesson_data = {
             "id": lesson_id,
             "user_id": user_id,
+            "title": title,
             "topic": request.topic,
             "grade": request.grade,
             "duration": request.duration,
-            "plan": lesson_plan["plan"],
+            "plan_json": lesson_plan["plan"],
             "agent_thoughts": lesson_plan.get("thoughts") if request.show_agent_thoughts else None,
-            "created_at": datetime.now().isoformat()
         }
         
         # Insert into Supabase
-        self.supabase.table("lesson_plans").insert(lesson_data).execute()
+        result = self.supabase.table("lesson_plans").insert(lesson_data).execute()
         
-        return lesson_data
+        # Return the created lesson with timestamps
+        if result.data:
+            return result.data[0]
+        else:
+            raise Exception("Failed to create lesson plan")
     
     async def get_user_lessons(self, user_id: str):
         response = self.supabase.table("lesson_plans").select("*").eq("user_id", user_id).execute()

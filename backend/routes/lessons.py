@@ -11,16 +11,20 @@ class LessonRequest(BaseModel):
     topic: str
     grade: str
     duration: int = 60  # minutes
+    title: Optional[str] = None
     show_agent_thoughts: bool = False
 
 class LessonResponse(BaseModel):
     id: str
+    user_id: str
+    title: Optional[str]
     topic: str
     grade: str
     duration: int
-    plan: dict
+    plan_json: dict
     agent_thoughts: Optional[dict] = None
     created_at: str
+    updated_at: str
 
 @router.post("/generate", response_model=LessonResponse)
 async def generate_lesson(
