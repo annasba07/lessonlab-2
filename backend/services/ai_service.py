@@ -1,10 +1,15 @@
-import openai
 import os
 from typing import Dict, Any
+from openai import OpenAI
+from dotenv import load_dotenv
 
 class AIService:
     def __init__(self):
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        load_dotenv()
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        self.client = OpenAI(api_key=api_key)
     
     async def generate_lesson_plan(self, topic: str, grade: str, duration: int, show_thoughts: bool = False) -> Dict[str, Any]:
         """
@@ -40,10 +45,10 @@ class AIService:
         Format as a list of clear, measurable objectives.
         """
         
-        response = await openai.ChatCompletion.acreate(
+        response = self.client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=300
+            max_tokens=1000
         )
         
         # Parse response into structured objectives
@@ -57,7 +62,7 @@ class AIService:
         Include: Introduction (5-10 min), Main Activity, Assessment, and timing for each section.
         """
         
-        response = await openai.ChatCompletion.acreate(
+        response = self.client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500
