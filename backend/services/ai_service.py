@@ -46,7 +46,7 @@ class AIService:
         """
         
         response = self.client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1000
         )
@@ -63,7 +63,7 @@ class AIService:
         """
         
         response = self.client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500
         )
