@@ -1,0 +1,15 @@
+.claude
+reference
+project-spec.md
+**/node_modules/
+.next/
+frontend/.next/
+**venv
+
+# Environment files (CRITICAL - contains secrets!)
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env.local
+frontend/.env.production
