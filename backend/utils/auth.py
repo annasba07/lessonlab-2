@@ -85,10 +85,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         
     except JWTError as e:
         logger.warning(f"JWT validation failed: {str(e)}")
-        raise HTTPException(
-            status_code=401, 
-            detail="Invalid or malformed token"
-        )
+        error_msg = str(e).lower()
+        if "expired" in error_msg:
+            raise HTTPException(
+                status_code=401, 
+                detail="Token has expired"
+            )
+        else:
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid or malformed token"
+            )
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise

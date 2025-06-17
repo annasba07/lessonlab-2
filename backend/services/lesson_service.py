@@ -3,11 +3,19 @@ from services.ai_service import AIService
 import os
 import uuid
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class LessonService:
     def __init__(self):
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        
+        if not url or not key:
+            raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required")
+            
         self.supabase: Client = create_client(url, key)
         self.ai_service = AIService()
     
