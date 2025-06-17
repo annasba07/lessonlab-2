@@ -1,37 +1,40 @@
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-import httpx
 import os
-from typing import Dict, Any
-from functools import lru_cache
+from typing import Dict, Any, Optional
+import logging
+from datetime import datetime, timezone
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
-@lru_cache(maxsize=1)
-def get_jwks():
-    """Cache JWKS from Supabase to avoid hitting the endpoint on every request"""
-    supabase_url = os.getenv("SUPABASE_URL")
-    if not supabase_url:
-        raise ValueError("SUPABASE_URL environment variable is required")
-    
-    # Fetch JWKS from Supabase
-    jwks_url = f"{supabase_url}/auth/v1/jwks"
-    try:
-        response = httpx.get(jwks_url)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch JWKS: {str(e)}")
-
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
-    """Verify JWT token from Supabase Auth and return user info"""
+    """
+    Verify JWT token from Supabase Auth and return user info
+    
+    Args:
+        credentials: JWT token from Authorization header
+        
+    Returns:
+        Dict containing user_id, email, and other user info
+        
+    Raises:
+        HTTPException: If token is invalid or missing required fields
+    """
     try:
         token = credentials.credentials
-        jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
         
+        # Validate environment variables
+        jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
         if not jwt_secret:
-            raise HTTPException(status_code=500, detail="SUPABASE_JWT_SECRET not configured")
+            logger.error("SUPABASE_JWT_SECRET environment variable not set")
+            raise HTTPException(
+                status_code=500, 
+                detail="Authentication service configuration error"
+            )
         
         # Decode and verify the JWT token
         payload = jwt.decode(
@@ -41,20 +44,72 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             audience="authenticated"
         )
         
-        # Extract user information
+        # Extract user information from token payload
         user_id = payload.get("sub")
         email = payload.get("email")
+        role = payload.get("role", "authenticated")
         
+        # Validate required fields
         if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token: missing user ID")
+            logger.warning("JWT token missing user ID (sub claim)")
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid token: missing user identification"
+            )
+        
+        # Check if user is authenticated
+        if role != "authenticated":
+            logger.warning(f"User {user_id} has invalid role: {role}")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token: user not authenticated"
+            )
+        
+        # Check token expiration
+        exp = payload.get("exp")
+        if exp and exp < datetime.now(timezone.utc).timestamp():
+            logger.warning(f"Expired token for user {user_id}")
+            raise HTTPException(
+                status_code=401,
+                detail="Token has expired"
+            )
+        
+        logger.info(f"Successfully authenticated user: {user_id}")
         
         return {
             "user_id": user_id,
             "email": email,
+            "role": role,
             "raw_payload": payload
         }
         
     except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+        logger.warning(f"JWT validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid or malformed token"
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        raise HTTPException(status_code=401, detail="Authentication failed")
+        logger.error(f"Unexpected error during authentication: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Authentication service error"
+        )
+
+async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[Dict[str, Any]]:
+    """
+    Optional authentication - returns user info if token is provided and valid, None otherwise
+    Useful for endpoints that work with or without authentication
+    """
+    if not credentials:
+        return None
+    
+    try:
+        # Convert to required dependency and get user
+        return await get_current_user(credentials)
+    except HTTPException:
+        # If token is invalid, return None instead of raising error
+        return None
