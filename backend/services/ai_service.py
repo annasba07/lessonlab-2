@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Dict, Any
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -16,11 +17,10 @@ class AIService:
         Lesson plan generation pipeline
         """
         
-        # Step 1: Parse topic and grade into learning objectives
-        objectives = await self._generate_objectives(topic, grade)
-        
-        # Step 2: Create lesson structure
-        structure = await self._create_lesson_structure(objectives, duration)
+        # Step 1: Generate objectives and structure in one call (performance optimization)
+        objectives_and_structure = await self._generate_objectives_and_structure(topic, grade, duration)
+        objectives = objectives_and_structure["objectives"]
+        structure = objectives_and_structure["structure"]
         
         # Step 3: Find and score resources
         resources = await self._find_resources(topic, grade)
@@ -94,6 +94,74 @@ class AIService:
             }
         ]
     
+    async def _generate_objectives_and_structure(self, topic: str, grade: str, duration: int):
+        """
+        Combined API call to generate both objectives and lesson structure (performance optimization)
+        """
+        prompt = f"""
+        Create a comprehensive lesson plan foundation for {grade} grade students on "{topic}" ({duration} minutes).
+
+        Provide a complete response with both learning objectives and lesson structure.
+
+        Format your response as valid JSON:
+        {{
+          "objectives": [
+            "Specific, measurable learning objective 1",
+            "Specific, measurable learning objective 2", 
+            "Specific, measurable learning objective 3"
+          ],
+          "structure": {{
+            "introduction": "Brief description of lesson introduction (5-10 minutes)",
+            "main_activity": "Detailed description of the main learning activity with student engagement",
+            "assessment": "Description of how student learning will be assessed",
+            "timing": "{duration} minutes total with time breakdown"
+          }}
+        }}
+
+        Requirements:
+        - 3-5 clear, measurable learning objectives appropriate for {grade} grade
+        - Age-appropriate activities and language
+        - Include timing breakdown for each section
+        - Focus on student engagement and active learning
+        """
+
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an expert curriculum designer with 20+ years of experience creating engaging, age-appropriate lesson plans. Always respond with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500
+        )
+
+        try:
+            # Parse the JSON response
+            content = response.choices[0].message.content.strip()
+            # Remove any markdown code blocks if present
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.endswith("```"):
+                content = content[:-3]
+            
+            result = json.loads(content)
+            return result
+        except json.JSONDecodeError as e:
+            # Fallback: return structured data even if JSON parsing fails
+            print(f"JSON parsing failed: {e}")
+            return {
+                "objectives": [
+                    f"Students will understand key concepts about {topic}",
+                    f"Students will be able to apply {topic} knowledge in practical situations",
+                    f"Students will demonstrate comprehension through assessment activities"
+                ],
+                "structure": {
+                    "introduction": "Engage students with topic overview and prior knowledge activation",
+                    "main_activity": response.choices[0].message.content[:200],
+                    "assessment": "Quick formative assessment to check understanding",
+                    "timing": f"{duration} minutes total"
+                }
+            }
+
     async def _assemble_lesson_plan(self, objectives, structure, resources):
         return {
             "title": f"Lesson Plan: {objectives[0] if objectives else 'Custom Topic'}",
