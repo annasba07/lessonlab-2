@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -12,6 +12,21 @@ class AIService:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
     
+    async def call_llm(self, messages: List[Dict[str, str]], model: str = "gpt-4o", max_tokens: int = 1500, temperature: float = 0.7) -> str:
+        """
+        Centralized OpenAI API call with basic error handling
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            raise Exception(f"LLM API call failed: {str(e)}")
+    
     async def generate_lesson_plan(self, topic: str, grade: str, duration: int, show_thoughts: bool = False) -> Dict[str, Any]:
         """
         Lesson plan generation pipeline
@@ -22,10 +37,10 @@ class AIService:
         objectives = objectives_and_structure["objectives"]
         structure = objectives_and_structure["structure"]
         
-        # Step 3: Find and score resources
+        # Step 2: Find and score resources
         resources = await self._find_resources(topic, grade)
         
-        # Step 4: Assemble final lesson plan
+        # Step 3: Assemble final lesson plan
         final_plan = await self._assemble_lesson_plan(objectives, structure, resources)
         
         result = {"plan": final_plan}
@@ -38,23 +53,6 @@ class AIService:
             }
         
         return result
-    
-    async def _generate_objectives(self, topic: str, grade: str):
-        prompt = f"""
-        Create 3-5 specific learning objectives for a {grade} grade lesson on "{topic}".
-        Format as a list of clear, measurable objectives.
-        """
-        
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1000
-        )
-        
-        # Parse response into structured objectives
-        return [obj.strip() for obj in response.choices[0].message.content.split('\n') if obj.strip()]
-    
-    async def _create_lesson_structure(self, objectives, duration):
         prompt = f"""
         Create a {duration}-minute lesson structure with these objectives:
         {chr(10).join(objectives)}
@@ -62,15 +60,12 @@ class AIService:
         Include: Introduction (5-10 min), Main Activity, Assessment, and timing for each section.
         """
         
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500
-        )
+        messages = [{"role": "user", "content": prompt}]
+        content = await self.call_llm(messages, max_tokens=500)
         
         return {
             "introduction": "Engage students with topic overview",
-            "main_activity": response.choices[0].message.content,
+            "main_activity": content,
             "assessment": "Quick formative assessment",
             "timing": f"{duration} minutes total"
         }
@@ -125,18 +120,14 @@ class AIService:
         - Focus on student engagement and active learning
         """
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an expert curriculum designer with 20+ years of experience creating engaging, age-appropriate lesson plans. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500
-        )
+        messages = [
+            {"role": "system", "content": "You are an expert curriculum designer with 20+ years of experience creating engaging, age-appropriate lesson plans. Always respond with valid JSON."},
+            {"role": "user", "content": prompt}
+        ]
+        
+        content = await self.call_llm(messages, max_tokens=1500)
 
         try:
-            # Parse the JSON response
-            content = response.choices[0].message.content.strip()
             # Remove any markdown code blocks if present
             if content.startswith("```json"):
                 content = content[7:]
@@ -156,7 +147,7 @@ class AIService:
                 ],
                 "structure": {
                     "introduction": "Engage students with topic overview and prior knowledge activation",
-                    "main_activity": response.choices[0].message.content[:200],
+                    "main_activity": content[:200] if content else "Interactive lesson activity",
                     "assessment": "Quick formative assessment to check understanding",
                     "timing": f"{duration} minutes total"
                 }
