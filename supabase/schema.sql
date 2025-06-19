@@ -11,6 +11,8 @@ CREATE TABLE lesson_plans (
   duration INTEGER DEFAULT 60, -- minutes
   plan_json JSONB NOT NULL,
   agent_thoughts JSONB,
+  evaluation JSONB, -- Stores background evaluation results
+  generation_metadata JSONB, -- Stores prompt, model, and generation parameters
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
 );
@@ -18,6 +20,8 @@ CREATE TABLE lesson_plans (
 -- Create indexes for better performance
 CREATE INDEX idx_lesson_plans_user_id ON lesson_plans(user_id);
 CREATE INDEX idx_lesson_plans_created_at ON lesson_plans(created_at DESC);
+CREATE INDEX idx_lesson_plans_evaluation ON lesson_plans USING GIN (evaluation); -- For evaluation analytics
+CREATE INDEX idx_lesson_plans_generation_metadata ON lesson_plans USING GIN (generation_metadata); -- For prompt analytics
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE lesson_plans ENABLE ROW LEVEL SECURITY;
