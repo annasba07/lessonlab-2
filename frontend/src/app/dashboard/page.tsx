@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import Navigation from '@/components/Navigation'
 
 interface LessonPlan {
   id: string
@@ -39,7 +40,7 @@ interface LessonPlan {
   updated_at: string
 }
 
-export default function AppPage() {
+export default function DashboardPage() {
   const [topic, setTopic] = useState('')
   const [grade, setGrade] = useState('')
   const [duration, setDuration] = useState(60)
@@ -48,13 +49,8 @@ export default function AppPage() {
   const [lessonPlan, setLessonPlan] = useState<LessonPlan | null>(null)
   const [error, setError] = useState('')
 
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
-
-  const handleSignOut = async () => {
-    await signOut()
-    router.push('/')
-  }
 
   const generateLessonPlan = async () => {
     if (!topic || !grade) {
@@ -111,27 +107,7 @@ export default function AppPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <h1 className="text-3xl font-bold text-gray-900">
-                Lesson Lab 2.0
-              </h1>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
-                  Welcome, {user?.email}
-                </span>
-                <button
-                  onClick={handleSignOut}
-                  className="bg-gray-200 hover:bg-gray-300 px-3 py-2 rounded-md text-sm font-medium text-gray-700"
-                >
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Navigation />
 
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">

@@ -25,7 +25,7 @@ function LoginForm() {
 
     // Redirect if already logged in
     if (user) {
-      router.push('/app')
+      router.push('/dashboard')
     }
   }, [user, router, searchParams])
 
@@ -53,7 +53,7 @@ function LoginForm() {
         }
       } else {
         // Success - user will be redirected by useEffect
-        router.push('/app')
+        router.push('/dashboard')
       }
     } catch (err) {
       setError('An unexpected error occurred')
