@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import Navigation from '@/components/Navigation'
+import ThumbsRating from '@/components/ThumbsRating'
 
 interface LessonPlan {
   id: string
@@ -36,6 +37,7 @@ interface LessonPlan {
     structure_reasoning: string
     resources_reasoning: string
   }
+  user_rating?: boolean
   created_at: string
   updated_at: string
 }
@@ -48,6 +50,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [lessonPlan, setLessonPlan] = useState<LessonPlan | null>(null)
   const [error, setError] = useState('')
+  const [submittingRating, setSubmittingRating] = useState(false)
 
   const { user } = useAuth()
   const router = useRouter()
@@ -101,6 +104,53 @@ export default function DashboardPage() {
       setError(err.message || 'An error occurred while generating the lesson plan')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const submitRating = async (rating: boolean) => {
+    if (!lessonPlan) return
+
+    setSubmittingRating(true)
+
+    try {
+      // Get the user's session token
+      const { data: { session } } = await import('@/lib/supabase').then(({ supabase }) => 
+        supabase.auth.getSession()
+      )
+
+      if (!session?.access_token) {
+        setError('Please sign in again to submit rating')
+        return
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      
+      const response = await fetch(`${apiUrl}/api/lessons/${lessonPlan.id}/rating`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          rating
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to submit rating')
+      }
+
+      // Update the lesson plan with the new rating
+      setLessonPlan({
+        ...lessonPlan,
+        user_rating: rating
+      })
+      
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while submitting your rating')
+    } finally {
+      setSubmittingRating(false)
     }
   }
 
@@ -286,6 +336,31 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Rating Section */}
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <h4 className="font-semibold text-blue-900 mb-3">Was this lesson plan helpful?</h4>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <ThumbsRating
+                            rating={lessonPlan.user_rating ?? null}
+                            onRatingChange={submitRating}
+                            readonly={submittingRating}
+                          />
+                          {submittingRating && (
+                            <p className="text-sm text-gray-600 mt-2">Submitting feedback...</p>
+                          )}
+                          {typeof lessonPlan.user_rating === 'boolean' && (
+                            <p className="text-sm text-green-700 mt-2">Thank you for your feedback!</p>
+                          )}
+                        </div>
+                        {typeof lessonPlan.user_rating !== 'boolean' && (
+                          <p className="text-sm text-gray-600">
+                            Your feedback helps us improve
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -13,6 +13,7 @@ CREATE TABLE lesson_plans (
   agent_thoughts JSONB,
   evaluation JSONB, -- Stores background evaluation results
   generation_metadata JSONB, -- Stores prompt, model, and generation parameters
+  user_rating BOOLEAN, -- User's thumbs up (true) or down (false) rating
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
 );

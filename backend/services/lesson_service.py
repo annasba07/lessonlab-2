@@ -101,3 +101,25 @@ class LessonService:
         except Exception as e:
             logger.error(f"Background evaluation failed for lesson {lesson_id}: {str(e)}")
             # Don't re-raise - this is a background task
+    
+    async def rate_lesson(self, lesson_id: str, user_id: str, rating: bool):
+        """
+        Submit a user rating for a lesson plan
+        """
+        try:
+            # Verify the lesson belongs to the user and update the rating
+            update_result = self.supabase.table("lesson_plans").update({
+                "user_rating": rating
+            }).eq("id", lesson_id).eq("user_id", user_id).execute()
+            
+            if update_result.data:
+                rating_text = "thumbs up" if rating else "thumbs down"
+                logger.info(f"User rating '{rating_text}' submitted for lesson {lesson_id}")
+                return True
+            else:
+                logger.warning(f"Failed to update rating for lesson {lesson_id} - lesson not found or not owned by user")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to rate lesson {lesson_id}: {str(e)}")
+            raise Exception(f"Failed to submit rating: {str(e)}")

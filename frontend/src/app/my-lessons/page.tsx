@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import Navigation from '@/components/Navigation'
+import ThumbsRating from '@/components/ThumbsRating'
 
 interface LessonPlan {
   id: string
@@ -35,6 +36,7 @@ interface LessonPlan {
     structure_reasoning: string
     resources_reasoning: string
   }
+  user_rating?: boolean
   created_at: string
   updated_at: string
 }
@@ -179,6 +181,17 @@ export default function MyLessonsPage() {
                       </ul>
                     </div>
 
+                    {lesson.user_rating !== undefined && (
+                      <div className="mb-3">
+                        <ThumbsRating
+                          rating={lesson.user_rating}
+                          readonly={true}
+                          size="sm"
+                          showLabel={false}
+                        />
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-center">
                       <p className="text-xs text-gray-500">
                         Created: {formatDate(lesson.created_at)}
@@ -220,6 +233,16 @@ export default function MyLessonsPage() {
                   <p className="text-sm text-gray-600 mb-4">
                     Duration: {selectedLesson.duration} minutes | Grade: {selectedLesson.grade}
                   </p>
+                  {selectedLesson.user_rating !== undefined && (
+                    <div className="mb-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Your Feedback:</h4>
+                      <ThumbsRating
+                        rating={selectedLesson.user_rating}
+                        readonly={true}
+                        size="md"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
