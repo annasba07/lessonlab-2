@@ -161,10 +161,14 @@ export default function DashboardPage() {
 
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="flex flex-col lg:flex-row gap-8">
               
               {/* Input Form */}
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className={`bg-white shadow rounded-lg p-6 transition-all duration-500 ${
+                lessonPlan 
+                  ? 'lg:w-80 lg:flex-shrink-0' 
+                  : 'lg:w-1/2'
+              }`}>
                 <h2 className="text-lg font-medium text-gray-900 mb-4">
                   Generate Lesson Plan
                 </h2>
@@ -258,7 +262,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Results */}
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white shadow rounded-lg p-6 flex-1">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">
                   Generated Lesson Plan
                 </h2>
