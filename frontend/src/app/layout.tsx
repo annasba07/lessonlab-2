@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Lesson Lab 2.0',
   description: 'AI-powered lesson plan generator for educators',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
