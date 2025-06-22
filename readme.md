@@ -1,6 +1,6 @@
 # 📚 Lesson Lab 2.0
 
-Lesson Lab 2.0 is a full-stack AI tool that helps teachers generate high-quality, structured lesson plans using agentic reasoning and real-time resource evaluation.
+Lesson Lab 2.0 is a full-stack AI tool that helps teachers generate high-quality, structured lesson plans using AI.
 
 > Rebuilt from the ground up to showcase AI system design, full-stack implementation, and LLM-driven educational workflows.
 
@@ -12,7 +12,7 @@ Lesson Lab 2.0 is a full-stack AI tool that helps teachers generate high-quality
 - 🧠 **Agentic Lesson Generator** – multi-step LLM process for structured plans
 - 🔍 **Resource Search + Scoring** – pulls real or mocked resources and ranks them for fit
 - 💾 **User Dashboard** – save and view past lesson plans
-- 🪄 **Agent Thoughts** – optional scratchpad shows how the AI “thinks”
+- 🪄 **AI Thoughts** – optional scratchpad shows how the AI “thinks”
 - 🚀 **Built with Claude, OpenAI, and GPT-4**
 
 ---
@@ -30,7 +30,7 @@ Lesson Lab 2.0 is a full-stack AI tool that helps teachers generate high-quality
 
 ---
 
-## 🧠 Agent Flow (High-Level)
+## 🧠 AI Flow (High-Level)
 
 1. **Interpret Topic + Grade**
 2. **Generate Learning Objectives**
