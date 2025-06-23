@@ -47,4 +47,4 @@ Each step is modular and traceable to allow transparency, evals, and iteration.
 
 1. Clone the repo:
 ```bash
-git clone https://github.com/[your-username]/lesson-lab-2.0.git
+git clone https://github.com/annasba07/lessonlab-2.git
