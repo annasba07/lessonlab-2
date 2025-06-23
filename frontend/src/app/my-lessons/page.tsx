@@ -32,9 +32,10 @@ interface LessonPlan {
     differentiation: string
   }
   agent_thoughts?: {
-    objectives_reasoning: string
-    structure_reasoning: string
-    resources_reasoning: string
+    objectives_rationale: string
+    structure_rationale: string
+    activity_rationale: string
+    assessment_rationale: string
   }
   user_rating?: boolean
   created_at: string
@@ -294,11 +295,24 @@ export default function MyLessonsPage() {
 
                 {selectedLesson.agent_thoughts && (
                   <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 mb-2">🤖 AI Reasoning</h4>
-                    <div className="space-y-2 text-sm text-blue-800">
-                      <p><strong>Objectives:</strong> {selectedLesson.agent_thoughts.objectives_reasoning}</p>
-                      <p><strong>Structure:</strong> {selectedLesson.agent_thoughts.structure_reasoning}</p>
-                      <p><strong>Resources:</strong> {selectedLesson.agent_thoughts.resources_reasoning}</p>
+                    <h4 className="font-semibold text-blue-900 mb-3">🤖 Pedagogical Reasoning</h4>
+                    <div className="space-y-3 text-sm text-blue-800">
+                      <div>
+                        <p className="font-medium text-blue-900">Why These Objectives:</p>
+                        <p>{selectedLesson.agent_thoughts.objectives_rationale}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-blue-900">Why This Structure:</p>
+                        <p>{selectedLesson.agent_thoughts.structure_rationale}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-blue-900">Why This Activity Approach:</p>
+                        <p>{selectedLesson.agent_thoughts.activity_rationale}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-blue-900">Why This Assessment:</p>
+                        <p>{selectedLesson.agent_thoughts.assessment_rationale}</p>
+                      </div>
                     </div>
                   </div>
                 )}
