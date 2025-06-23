@@ -7,7 +7,7 @@ from datetime import datetime
 
 class AIService:
     def __init__(self):
-        load_dotenv()
+        load_dotenv(override=True)  # Force .env to override system environment variables
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
@@ -59,12 +59,13 @@ class AIService:
             "generation_metadata": generation_metadata
         }
         
-        if show_thoughts:
-            result["thoughts"] = {
-                "objectives_reasoning": f"Generated {len(objectives)} learning objectives based on {topic} for grade {grade}",
-                "structure_reasoning": f"Created {duration}-minute lesson with intro, main activity, and assessment",
-                "resources_reasoning": f"Found {len(resources)} relevant resources and scored them for age-appropriateness"
-            }
+        # Always include the pedagogical reasoning from the LLM response
+        result["thoughts"] = objectives_and_structure.get("pedagogical_reasoning", {
+            "objectives_rationale": "AI reasoning not available",
+            "structure_rationale": "AI reasoning not available", 
+            "activity_rationale": "AI reasoning not available",
+            "assessment_rationale": "AI reasoning not available"
+        })
         
         return result
     
@@ -79,7 +80,7 @@ class AIService:
         Lesson Plan:
         {json.dumps(lesson_plan, indent=2)}
         
-        Rate each dimension from 0.0 to 5.0 and provide brief reasoning:
+        Rate each dimension from 0.0 to 1.0 and provide brief reasoning:
         
         1. Objective Clarity: Are learning objectives specific, measurable, and use action verbs?
         2. Age Appropriateness: Is content suitable for {grade} grade level in language and complexity?
@@ -149,7 +150,7 @@ class AIService:
         prompt = f"""
         Create a comprehensive lesson plan foundation for {grade} grade students on "{topic}" ({duration} minutes).
 
-        Provide a complete response with both learning objectives and lesson structure.
+        As you create this lesson, explain your pedagogical reasoning for each decision.
 
         Format your response as valid JSON:
         {{
@@ -161,8 +162,14 @@ class AIService:
           "structure": {{
             "introduction": "Brief description of lesson introduction (5-10 minutes)",
             "main_activity": "Detailed description of the main learning activity with student engagement",
-            "assessment": "Description of how student learning will be assessed",
+            "assessment": "Detailed description of how student learning will be assessed",
             "timing": "{duration} minutes total with time breakdown"
+          }},
+          "pedagogical_reasoning": {{
+            "objectives_rationale": "In one sentence, why I chose these specific objectives for {grade} grade students learning {topic}. Consider developmental appropriateness, prior knowledge, and measurable outcomes.",
+            "structure_rationale": "In one sentence, why this lesson flow and timing works for {grade} grade students in a {duration}-minute period. Consider attention spans, engagement strategies, and learning progression.",
+            "activity_rationale": "In one sentence, why I selected this main activity approach for {topic} at the {grade} grade level. Consider learning styles, concrete vs abstract thinking, and hands-on vs theoretical approaches.",
+            "assessment_rationale": "In one sentence, why this assessment method is appropriate for {grade} graders learning {topic}. Consider their developmental stage and how to effectively measure understanding."
           }}
         }}
 
@@ -178,7 +185,7 @@ class AIService:
             {"role": "user", "content": prompt}
         ]
         
-        llm_result = await self.call_llm(messages, max_tokens=1500)
+        llm_result = await self.call_llm(messages, max_tokens=2000)
         content = llm_result["content"]
         token_usage = llm_result["usage"]
 
