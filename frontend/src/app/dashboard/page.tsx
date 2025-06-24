@@ -27,6 +27,11 @@ export default function DashboardPage() {
       return
     }
 
+    if (!duration || duration <= 0 || duration > 60) {
+      setError('Duration must be between 1 and 60 minutes')
+      return
+    }
+
     setLoading(true)
     setError('')
     setLessonPlan(null)
