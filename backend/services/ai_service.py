@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from openai import OpenAI
 from dotenv import load_dotenv
 from datetime import datetime
+from langsmith.wrappers import wrap_openai
 
 class AIService:
     def __init__(self):
@@ -11,7 +12,10 @@ class AIService:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
-        self.client = OpenAI(api_key=api_key)
+        
+        # Create OpenAI client and wrap with LangSmith for automatic tracing
+        openai_client = OpenAI(api_key=api_key)
+        self.client = wrap_openai(openai_client)
     
     async def call_llm(self, messages: List[Dict[str, str]], model: str = "gpt-4o", max_tokens: int = 1500, temperature: float = 0.7) -> Dict[str, Any]:
         """
