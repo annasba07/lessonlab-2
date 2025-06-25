@@ -29,6 +29,8 @@ export interface LessonPlan {
     activity_rationale: string
     assessment_rationale: string
   }
+  evaluation?: any  // Background evaluation results
+  generation_metadata?: any  // AI generation metadata
   user_rating?: boolean
   created_at: string
   updated_at: string

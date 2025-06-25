@@ -23,11 +23,17 @@ class LessonResponse(BaseModel):
     duration: int
     plan_json: dict
     agent_thoughts: Optional[dict] = None
+    evaluation: Optional[dict] = None  # Background evaluation results
+    generation_metadata: Optional[dict] = None  # AI generation metadata
     user_rating: Optional[bool] = None
     created_at: str
     updated_at: str
 
 class RatingRequest(BaseModel):
+    rating: bool
+
+class RatingResponse(BaseModel):
+    message: str
     rating: bool
 
 @router.post("/generate", response_model=LessonResponse)
@@ -62,7 +68,7 @@ async def get_lesson(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{lesson_id}/rating")
+@router.put("/{lesson_id}/rating", response_model=RatingResponse)
 async def rate_lesson(
     lesson_id: str,
     rating_request: RatingRequest,
@@ -75,6 +81,6 @@ async def rate_lesson(
         if not result:
             raise HTTPException(status_code=404, detail="Lesson not found")
         
-        return {"message": "Rating submitted successfully", "rating": rating_request.rating}
+        return RatingResponse(message="Rating submitted successfully", rating=rating_request.rating)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
