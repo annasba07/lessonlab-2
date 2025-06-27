@@ -41,6 +41,10 @@ class RatingResponse(BaseModel):
 class RevisionRequest(BaseModel):
     feedback: str
 
+class RevisionHistoryResponse(BaseModel):
+    lesson_id: str
+    revisions: List[Dict[str, Any]]
+
 @router.post("/generate", response_model=LessonResponse)
 async def generate_lesson(
     request: LessonRequest, 
@@ -113,5 +117,23 @@ async def revise_lesson(
             raise HTTPException(status_code=404, detail="Lesson not found")
         
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{lesson_id}/revisions", response_model=RevisionHistoryResponse)
+async def get_lesson_revisions(
+    lesson_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Get revision history for a lesson plan
+    """
+    try:
+        revisions = await lesson_service.get_lesson_revisions(lesson_id, current_user["user_id"])
+        
+        return RevisionHistoryResponse(
+            lesson_id=lesson_id,
+            revisions=revisions
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

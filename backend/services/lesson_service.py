@@ -6,7 +6,7 @@ import asyncio
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # Load environment variables
 load_dotenv()
@@ -128,6 +128,7 @@ class LessonService:
     async def revise_lesson(self, lesson_id: str, user_id: str, feedback: str) -> Dict[str, Any]:
         """
         Revise an existing lesson plan based on user feedback
+        Now stores revisions in lesson_revisions table for history
         """
         try:
             # Get original lesson
@@ -147,10 +148,30 @@ class LessonService:
                 duration=original_lesson["duration"]
             )
             
-            # Update database with revision data
-            updated_lesson = self.supabase.table("lesson_plans").update({
+            # Get the next revision number
+            current_revision_number = original_lesson.get("current_revision_number", 0)
+            next_revision_number = current_revision_number + 1
+            
+            # Store the revision in the lesson_revisions table
+            revision_data = {
+                "lesson_id": lesson_id,
+                "revision_number": next_revision_number,
                 "revised_plan_json": revision_result["plan"],
                 "revision_feedback": feedback,
+                "revision_metadata": revision_result["metadata"]
+            }
+            
+            revision_result_db = self.supabase.table("lesson_revisions").insert(revision_data).execute()
+            
+            if not revision_result_db.data:
+                raise Exception("Failed to store revision in lesson_revisions table")
+            
+            # Update the lesson_plans table with the latest revision (for backward compatibility)
+            # and increment the current_revision_number
+            updated_lesson = self.supabase.table("lesson_plans").update({
+                "revised_plan_json": revision_result["plan"],  # Keep latest revision here
+                "revision_feedback": feedback,  # Keep latest feedback here
+                "current_revision_number": next_revision_number,
                 "updated_at": datetime.now().isoformat(),
                 "user_rating": None  # Reset rating for revised lesson
             }).eq("id", lesson_id).eq("user_id", user_id).execute()
@@ -163,6 +184,25 @@ class LessonService:
         except Exception as e:
             logger.error(f"Error revising lesson {lesson_id}: {str(e)}")
             raise
+
+    async def get_lesson_revisions(self, lesson_id: str, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all revisions for a lesson plan
+        """
+        try:
+            # Verify the lesson belongs to the user
+            lesson_check = self.supabase.table("lesson_plans").select("id").eq("id", lesson_id).eq("user_id", user_id).execute()
+            if not lesson_check.data:
+                return []
+            
+            # Get all revisions for this lesson
+            revisions_result = self.supabase.table("lesson_revisions").select("*").eq("lesson_id", lesson_id).order("revision_number").execute()
+            
+            return revisions_result.data if revisions_result.data else []
+            
+        except Exception as e:
+            logger.error(f"Error getting revisions for lesson {lesson_id}: {str(e)}")
+            return []
 
     def _format_lesson(self, lesson_data: Dict[str, Any]) -> Dict[str, Any]:
         """Format lesson data from database for API response"""
@@ -177,9 +217,11 @@ class LessonService:
             "agent_thoughts": lesson_data.get("agent_thoughts"),
             "evaluation": lesson_data.get("evaluation"),
             "generation_metadata": lesson_data.get("generation_metadata"),
-            # NEW: Include revision fields
+            # Backward compatibility: Keep existing fields
             "revised_plan_json": lesson_data.get("revised_plan_json"),
             "revision_feedback": lesson_data.get("revision_feedback"),
+            # New fields for revision history
+            "current_revision_number": lesson_data.get("current_revision_number", 0),
             "user_rating": lesson_data.get("user_rating"),
             "created_at": lesson_data["created_at"],
             "updated_at": lesson_data["updated_at"]
