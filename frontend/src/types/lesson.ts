@@ -1,6 +1,7 @@
 export interface LessonPlan {
   id: string
-  title: string
+  user_id: string
+  title?: string
   topic: string
   grade: string
   duration: number
@@ -31,6 +32,28 @@ export interface LessonPlan {
   }
   evaluation?: any  // Background evaluation results
   generation_metadata?: any  // AI generation metadata
+  // NEW: Revision fields
+  revised_plan_json?: {
+    title: string
+    objectives: string[]
+    structure: {
+      introduction: string
+      main_activity: string
+      assessment: string
+      timing: string
+    }
+    resources: Array<{
+      title: string
+      type: string
+      url: string
+      score: number
+      reasoning: string
+    }>
+    materials_needed: string[]
+    differentiation: string
+  }
+  revision_feedback?: string
+  revision_metadata?: any
   user_rating?: boolean
   created_at: string
   updated_at: string

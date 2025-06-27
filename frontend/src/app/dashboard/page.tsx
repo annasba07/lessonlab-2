@@ -17,6 +17,9 @@ export default function DashboardPage() {
   const [lessonPlan, setLessonPlan] = useState<LessonPlan | null>(null)
   const [error, setError] = useState('')
   const [submittingRating, setSubmittingRating] = useState(false)
+  const [feedback, setFeedback] = useState('')
+  const [revising, setRevising] = useState(false)
+  const [viewingRevision, setViewingRevision] = useState(false)
 
   const { user } = useAuth()
   const router = useRouter()
@@ -122,6 +125,59 @@ export default function DashboardPage() {
       setError(err.message || 'An error occurred while submitting your rating')
     } finally {
       setSubmittingRating(false)
+    }
+  }
+
+  const reviseLessonPlan = async () => {
+    if (!feedback.trim()) {
+      setError('Please provide feedback for revision')
+      return
+    }
+    
+    if (!lessonPlan) {
+      setError('No lesson plan to revise')
+      return
+    }
+    
+    setRevising(true)
+    setError('')
+    
+    try {
+      // Get the user's session token
+      const { data: { session } } = await import('@/lib/supabase').then(({ supabase }) => 
+        supabase.auth.getSession()
+      )
+
+      if (!session?.access_token) {
+        setError('Please sign in again to revise lesson')
+        return
+      }
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      
+      const response = await fetch(`${apiUrl}/api/lessons/${lessonPlan.id}/revise`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ feedback })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to revise lesson plan')
+      }
+
+      const revisedLesson = await response.json()
+      setLessonPlan(revisedLesson)
+      setViewingRevision(true)
+      setFeedback('')
+      
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while revising the lesson plan')
+    } finally {
+      setRevising(false)
     }
   }
 
@@ -247,58 +303,142 @@ export default function DashboardPage() {
 
                 {lessonPlan && (
                   <div className="space-y-6">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">{lessonPlan.plan_json.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        Duration: {lessonPlan.duration} minutes | Grade: {lessonPlan.grade}
-                      </p>
+                    {/* Feedback Section - Always at the top */}
+                    <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                      <h4 className="font-semibold text-amber-900 mb-3">
+                        💡 Want to improve this lesson?
+                      </h4>
+                      <textarea
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        placeholder="What would you like to improve? (e.g., 'Add more hands-on activities', 'Make it more challenging', 'Include group work', 'Simplify the language')"
+                        className="w-full p-3 border border-amber-300 rounded-md resize-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                        rows={3}
+                        disabled={revising}
+                      />
+                      <button
+                        onClick={reviseLessonPlan}
+                        disabled={!feedback.trim() || revising}
+                        className="mt-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md transition-colors"
+                      >
+                        {revising ? (
+                          <>
+                            <span className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>
+                            Creating revision...
+                          </>
+                        ) : (
+                          'Get Revised Version'
+                        )}
+                      </button>
                     </div>
 
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Learning Objectives</h4>
-                      <ul className="list-disc list-inside space-y-1">
-                        {lessonPlan.plan_json.objectives.map((objective, index) => (
-                          <li key={index} className="text-gray-700">{objective}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Lesson Structure</h4>
-                      <div className="space-y-2">
-                        <div>
-                          <span className="font-medium">Introduction:</span>
-                          <p className="text-gray-700">{lessonPlan.plan_json.structure.introduction}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium">Main Activity:</span>
-                          <p className="text-gray-700">{lessonPlan.plan_json.structure.main_activity}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium">Assessment:</span>
-                          <p className="text-gray-700">{lessonPlan.plan_json.structure.assessment}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Resources</h4>
-                      <div className="space-y-2">
-                        {lessonPlan.plan_json.resources.map((resource, index) => (
-                          <div key={index} className="border rounded p-3">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{resource.title}</p>
-                                <p className="text-sm text-gray-600">{resource.type}</p>
-                              </div>
-                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                                Score: {resource.score}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-700 mt-1">{resource.reasoning}</p>
+                    {/* Version Toggle (only show if revision exists) - Now below feedback */}
+                    {lessonPlan.revised_plan_json && (
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-green-900">
+                            ✨ Revision Available
+                          </h4>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setViewingRevision(false)}
+                              className={`px-3 py-1 rounded text-sm font-medium ${
+                                !viewingRevision 
+                                  ? 'bg-green-600 text-white' 
+                                  : 'bg-white text-green-600 border border-green-600'
+                              }`}
+                            >
+                              Original
+                            </button>
+                            <button
+                              onClick={() => setViewingRevision(true)}
+                              className={`px-3 py-1 rounded text-sm font-medium ${
+                                viewingRevision 
+                                  ? 'bg-green-600 text-white' 
+                                  : 'bg-white text-green-600 border border-green-600'
+                              }`}
+                            >
+                              Revised
+                            </button>
                           </div>
-                        ))}
+                        </div>
+                        {viewingRevision && lessonPlan.revision_feedback && (
+                          <p className="text-sm text-green-700 mt-2">
+                            <strong>Your feedback:</strong> "{lessonPlan.revision_feedback}"
+                          </p>
+                        )}
                       </div>
+                    )}
+
+                    {/* Display current lesson plan (original or revised) */}
+                    <div>
+                      {(() => {
+                        const currentPlan = viewingRevision && lessonPlan.revised_plan_json 
+                          ? lessonPlan.revised_plan_json 
+                          : lessonPlan.plan_json
+                        
+                        return (
+                          <>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">{currentPlan.title}</h3>
+                              <p className="text-sm text-gray-600">
+                                Duration: {lessonPlan.duration} minutes | Grade: {lessonPlan.grade}
+                                {viewingRevision && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded text-xs">Revised</span>}
+                              </p>
+                            </div>
+
+                            {/* Learning Objectives */}
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2">Learning Objectives</h4>
+                              <ul className="list-disc list-inside space-y-1">
+                                {currentPlan.objectives.map((objective, index) => (
+                                  <li key={index} className="text-gray-700">{objective}</li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            {/* Lesson Structure */}
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2">Lesson Structure</h4>
+                              <div className="space-y-2">
+                                <div>
+                                  <span className="font-medium">Introduction:</span>
+                                  <p className="text-gray-700">{currentPlan.structure.introduction}</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium">Main Activity:</span>
+                                  <p className="text-gray-700">{currentPlan.structure.main_activity}</p>
+                                </div>
+                                <div>
+                                  <span className="font-medium">Assessment:</span>
+                                  <p className="text-gray-700">{currentPlan.structure.assessment}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Resources */}
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2">Resources</h4>
+                              <div className="space-y-2">
+                                {currentPlan.resources.map((resource, index) => (
+                                  <div key={index} className="border rounded p-3">
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <p className="font-medium">{resource.title}</p>
+                                        <p className="text-sm text-gray-600">{resource.type}</p>
+                                      </div>
+                                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                                        Score: {resource.score}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-700 mt-1">{resource.reasoning}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )
+                      })()}
                     </div>
 
                     {lessonPlan.agent_thoughts && showAgentThoughts && (
@@ -325,9 +465,11 @@ export default function DashboardPage() {
                       </div>
                     )}
 
-                    {/* Rating Section */}
+                    {/* Rating Section - Keep existing */}
                     <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                      <h4 className="font-semibold text-blue-900 mb-3">Was this lesson plan helpful?</h4>
+                      <h4 className="font-semibold text-blue-900 mb-3">
+                        Was this lesson plan helpful?
+                      </h4>
                       <div className="flex items-center justify-between">
                         <div>
                           <ThumbsRating

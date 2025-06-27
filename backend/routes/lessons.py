@@ -25,6 +25,8 @@ class LessonResponse(BaseModel):
     agent_thoughts: Optional[dict] = None
     evaluation: Optional[dict] = None  # Background evaluation results
     generation_metadata: Optional[dict] = None  # AI generation metadata
+    revised_plan_json: Optional[dict] = None
+    revision_feedback: Optional[str] = None
     user_rating: Optional[bool] = None
     created_at: str
     updated_at: str
@@ -35,6 +37,9 @@ class RatingRequest(BaseModel):
 class RatingResponse(BaseModel):
     message: str
     rating: bool
+
+class RevisionRequest(BaseModel):
+    feedback: str
 
 @router.post("/generate", response_model=LessonResponse)
 async def generate_lesson(
@@ -82,5 +87,31 @@ async def rate_lesson(
             raise HTTPException(status_code=404, detail="Lesson not found")
         
         return RatingResponse(message="Rating submitted successfully", rating=rating_request.rating)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{lesson_id}/revise", response_model=LessonResponse)
+async def revise_lesson(
+    lesson_id: str,
+    request: RevisionRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Revise an existing lesson plan based on teacher feedback
+    """
+    try:
+        if not request.feedback.strip():
+            raise HTTPException(status_code=400, detail="Feedback cannot be empty")
+        
+        result = await lesson_service.revise_lesson(
+            lesson_id, 
+            current_user["user_id"], 
+            request.feedback
+        )
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Lesson not found")
+        
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

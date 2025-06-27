@@ -128,6 +128,116 @@ class AIService:
                 "suggestions": ["Manual review needed - evaluation system error"]
             }
     
+    async def revise_lesson_plan(
+        self, 
+        original_plan: Dict[str, Any], 
+        feedback: str, 
+        topic: str, 
+        grade: str, 
+        duration: int
+    ) -> Dict[str, Any]:
+        """
+        Revise a lesson plan based on teacher feedback while maintaining educational quality
+        """
+        
+        revision_prompt = f"""
+        You are helping a teacher improve their lesson plan based on their specific feedback.
+
+        ORIGINAL LESSON PLAN:
+        Topic: {topic}
+        Grade: {grade}
+        Duration: {duration} minutes
+        
+        Current Plan:
+        {json.dumps(original_plan, indent=2)}
+
+        TEACHER'S FEEDBACK:
+        "{feedback}"
+
+        Please revise the lesson plan to directly address the teacher's feedback while:
+        1. Maintaining educational quality and age-appropriateness for {grade} grade students
+        2. Keeping the same topic, grade level, and duration constraints
+        3. Preserving what works well from the original plan
+        4. Making specific improvements based on the feedback provided
+        5. Ensuring all learning objectives remain clear and measurable
+
+        IMPORTANT: Focus on the teacher's specific requests. If they want more hands-on activities, add them. If they want it more challenging, increase difficulty. If they want group work, incorporate collaborative elements.
+
+        Provide your response in the same JSON format as the original lesson plan:
+        {{
+          "title": "Revised lesson title reflecting improvements",
+          "objectives": ["revised objective 1", "revised objective 2", "revised objective 3"],
+          "structure": {{
+            "introduction": "Improved introduction based on feedback",
+            "main_activity": "Enhanced main activity addressing teacher's requests",
+            "assessment": "Updated assessment method",
+            "timing": "{duration} minutes with revised timing breakdown"
+          }},
+          "resources": [
+            {{
+              "title": "Resource title",
+              "type": "Resource type (video/worksheet/activity)",
+              "url": "Resource URL or description",
+              "score": 0.9,
+              "reasoning": "Why this resource fits the revised lesson"
+            }}
+          ],
+          "materials_needed": ["Updated materials list"],
+          "differentiation": "Enhanced differentiation strategies based on feedback"
+        }}
+        """
+
+        messages = [
+            {
+                "role": "system", 
+                "content": "You are an expert curriculum designer focused on iterative improvement. You excel at incorporating teacher feedback to create better, more practical lesson plans. Always respond with valid JSON that directly addresses the specific feedback provided."
+            },
+            {"role": "user", "content": revision_prompt}
+        ]
+        
+        try:
+            llm_result = await self.call_llm(messages, max_tokens=2000, temperature=0.7)
+            content = llm_result["content"]
+            token_usage = llm_result["usage"]
+            
+            # Clean JSON formatting
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.endswith("```"):
+                content = content[:-3]
+            
+            revised_plan = json.loads(content)
+            
+            # Generate revision metadata
+            revision_metadata = {
+                "original_feedback": feedback,
+                "revised_at": datetime.now().isoformat(),
+                "model_used": "gpt-4o",
+                "token_usage": token_usage,
+                "revision_prompt": revision_prompt[:500] + "..." if len(revision_prompt) > 500 else revision_prompt
+            }
+            
+            return {
+                "plan": revised_plan,
+                "metadata": revision_metadata
+            }
+            
+        except json.JSONDecodeError as e:
+            # Fallback: return original plan if revision fails
+            print(f"Revision JSON parsing failed: {e}")
+            return {
+                "plan": original_plan,
+                "metadata": {
+                    "revision_failed": True,
+                    "error": str(e),
+                    "feedback": feedback,
+                    "failed_at": datetime.now().isoformat()
+                }
+            }
+        except Exception as e:
+            print(f"Revision generation failed: {e}")
+            raise Exception(f"Failed to generate revision: {str(e)}")
+
     async def _find_resources(self, topic: str, grade: str):
         # Mock resource finding - in real implementation, this would search YouTube/Google
         return [

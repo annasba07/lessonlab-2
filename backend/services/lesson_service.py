@@ -6,6 +6,7 @@ import asyncio
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
+from typing import Dict, Any
 
 # Load environment variables
 load_dotenv()
@@ -123,3 +124,63 @@ class LessonService:
         except Exception as e:
             logger.error(f"Failed to rate lesson {lesson_id}: {str(e)}")
             raise Exception(f"Failed to submit rating: {str(e)}")
+
+    async def revise_lesson(self, lesson_id: str, user_id: str, feedback: str) -> Dict[str, Any]:
+        """
+        Revise an existing lesson plan based on user feedback
+        """
+        try:
+            # Get original lesson
+            original_lesson_data = self.supabase.table("lesson_plans").select("*").eq("id", lesson_id).eq("user_id", user_id).execute()
+            
+            if not original_lesson_data.data:
+                return None
+            
+            original_lesson = original_lesson_data.data[0]
+            
+            # Generate revised lesson plan using AI service
+            revision_result = await self.ai_service.revise_lesson_plan(
+                original_plan=original_lesson["plan_json"],
+                feedback=feedback,
+                topic=original_lesson["topic"],
+                grade=original_lesson["grade"],
+                duration=original_lesson["duration"]
+            )
+            
+            # Update database with revision data
+            updated_lesson = self.supabase.table("lesson_plans").update({
+                "revised_plan_json": revision_result["plan"],
+                "revision_feedback": feedback,
+                "updated_at": datetime.now().isoformat(),
+                "user_rating": None  # Reset rating for revised lesson
+            }).eq("id", lesson_id).eq("user_id", user_id).execute()
+            
+            if not updated_lesson.data:
+                raise Exception("Failed to update lesson with revision")
+            
+            return self._format_lesson(updated_lesson.data[0])
+            
+        except Exception as e:
+            logger.error(f"Error revising lesson {lesson_id}: {str(e)}")
+            raise
+
+    def _format_lesson(self, lesson_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Format lesson data from database for API response"""
+        return {
+            "id": lesson_data["id"],
+            "user_id": lesson_data["user_id"],
+            "title": lesson_data.get("title"),
+            "topic": lesson_data["topic"],
+            "grade": lesson_data["grade"],
+            "duration": lesson_data["duration"],
+            "plan_json": lesson_data["plan_json"],
+            "agent_thoughts": lesson_data.get("agent_thoughts"),
+            "evaluation": lesson_data.get("evaluation"),
+            "generation_metadata": lesson_data.get("generation_metadata"),
+            # NEW: Include revision fields
+            "revised_plan_json": lesson_data.get("revised_plan_json"),
+            "revision_feedback": lesson_data.get("revision_feedback"),
+            "user_rating": lesson_data.get("user_rating"),
+            "created_at": lesson_data["created_at"],
+            "updated_at": lesson_data["updated_at"]
+        }
